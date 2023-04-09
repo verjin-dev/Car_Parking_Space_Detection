@@ -1,66 +1,37 @@
 import cv2
-import pickle
-import cvzone
 import numpy as np
 
-# Video feed
-cap = cv2.VideoCapture('carPark.mp4')
-# cap = cv2.VideoCapture("rtsp://admin@192.168.1.10:554/Streaming/Channels/401")
-# while True:
-#    _,frame=video.read()
-#    cv2.imshow("RTSP",frame)
-#   k=cv2.waitkey(1)
-#    if k== ord('q'):
-#        break
-#
+# Load the YOLOv3 model
+net = cv2.dnn.readNet("yolov3.weights", "yolov3.cfg")
 
+# Set the labels of the classes we want to detect (in this case, only one class: parking space)
+classes = ["parking space"]
 
-with open('CarParkPos', 'rb') as f:
-    posList = pickle.load(f)
+# Load the image and convert it to a blob
+img = cv2.imread("parking_lot.jpg")
+blob = cv2.dnn.blobFromImage(img, 1/255.0, (416, 416), swapRB=True, crop=False)
 
-width, height = 107, 48
+# Set the input to the YOLOv3 model and forward pass
+net.setInput(blob)
+output_layers = net.getUnconnectedOutLayersNames()
+outputs = net.forward(output_layers)
 
+# Loop over the detected objects and draw bounding boxes around parking spaces
+for output in outputs:
+    for detection in output:
+        scores = detection[5:]
+        class_id = np.argmax(scores)
+        confidence = scores[class_id]
+        if confidence > 0.5 and classes[class_id] == "parking space":
+            center_x = int(detection[0] * img.shape[1])
+            center_y = int(detection[1] * img.shape[0])
+            w = int(detection[2] * img.shape[1])
+            h = int(detection[3] * img.shape[0])
+            x = center_x - w // 2
+            y = center_y - h // 2
+            cv2.rectangle(img, (x, y), (x + w, y + h), (0, 255, 0), 2)
 
-def checkParkingSpace(imgPro):
-    spaceCounter = 0
-
-    for pos in posList:
-        x, y = pos
-
-        imgCrop = imgPro[y:y + height, x:x + width]
-        # cv2.imshow(str(x * y), imgCrop)
-        count = cv2.countNonZero(imgCrop)
-
-
-        if count < 900:
-            color = (0, 255, 0)
-            thickness = 5
-            spaceCounter += 1
-        else:
-            color = (0, 0, 255)
-            thickness = 2
-
-        cv2.rectangle(img, pos, (pos[0] + width, pos[1] + height), color, thickness)
-        cvzone.putTextRect(img, str(count), (x, y + height - 3), scale=1,
-                           thickness=2, offset=0, colorR=color)
-
-    cvzone.putTextRect(img, f'Available: {spaceCounter}/{len(posList)}', (100, 50), scale=3,
-                           thickness=5, offset=20, colorR=(0,0,0))
-while True:
-
-    if cap.get(cv2.CAP_PROP_POS_FRAMES) == cap.get(cv2.CAP_PROP_FRAME_COUNT):
-        cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-    success, img = cap.read()
-    imgGray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    imgBlur = cv2.GaussianBlur(imgGray, (3, 3), 1)
-    imgThreshold = cv2.adaptiveThreshold(imgBlur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-                                         cv2.THRESH_BINARY_INV, 25, 16)
-    imgMedian = cv2.medianBlur(imgThreshold, 5)
-    kernel = np.ones((3, 3), np.uint8)
-    imgDilate = cv2.dilate(imgMedian, kernel, iterations=1)
-
-    checkParkingSpace(imgDilate)
-    cv2.imshow("Parking Space Viewer", img)
-    #cv2.imshow("ImageBlur", imgBlur)
-    #cv2.imshow("ImageThres", imgMedian)
-    cv2.waitKey(10)
+# Display the image with bounding boxes
+cv2.imshow("Parking Lot Detection", img)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
