@@ -1,0 +1,2 @@
+# Car_Parking_Space_Detection
+ The goal of this project is to develop a computer vision system that can detect the availability of parking spaces in a parking lot using YOLO (You Only Look Once), a state-of-the-art object detection algorithm. The system should be able to detect the number of available parking spaces in real-time, which can be used to optimize parking lot management and improve user experience.
